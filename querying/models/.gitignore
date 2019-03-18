@@ -1,0 +1,7 @@
+	dcgan/cifar10/
+	dcgan/fashionmnist/
+	dcgan/mnist/
+	mnist/log_fashionmnist1.txt
+	mnist/log_fashionmnist2.txt
+	mnist/log_mnist1.txt
+	mnist/log_mnist2.txt

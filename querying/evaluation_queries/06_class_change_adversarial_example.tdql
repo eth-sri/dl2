@@ -1,0 +1,7 @@
+DS: MNIST, FASHION_MNIST, CIFAR, GTSRB, IMAGENET
+FIND i[<<shape>>]
+S.T. class(<<classNN>>(i), <<class_not_var>>),
+     <<img_constraint>>,
+     normInf(i - <<var>>) < <<adversariealInfDistance>>
+INIT i = <<var>>
+RETURN i

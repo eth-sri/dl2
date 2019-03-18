@@ -1,0 +1,110 @@
+Program:
+    find=FindProgram
+    | eval=EvalProgram    
+;
+
+EvalProgram:
+    'EVAL' exp=Expression
+;
+
+FindProgram:
+    'FIND' variable_declarations=VariableDeclarations
+    ('SUCH THAT' | 'S.T.' | 'ST') constraints=Constraints
+    (('INITIALIZE'|'INIT') variable_initialization=Initializations)?
+    ('RETURN' return_values=Returns)?
+;
+
+Returns:
+	values=Expression ("," values*=Expression)*
+;
+
+Initializations:
+    initializations=Initialization ("," initializations*=Initialization)*
+;
+
+Initialization:
+    (var=Variable '=' rhs=Constant)
+    |(var=Variable '=' rhs=Variable)
+;
+
+VariableDeclaration:
+    identifier=ID shape=Shape
+;
+
+VariableDeclarations:
+    declarations=VariableDeclaration ("," declarations=VariableDeclaration)*
+;
+
+Constraints:
+    constraints=Disjunction (',' constraints=Disjunction)*
+;
+
+Disjunction:
+  c1=Constraint is_disjunction?='or' c2=Constraint
+  | c1=Constraint
+;
+
+Constraint:
+    lhs=Expression op=ConstraintOperator rhs=Expression
+    | is_class?='class' '(' args=Expression ("," args*=Expression)* ')'
+
+;
+
+Expression:
+  term=ExpressionTerm op='+' exp=Expression
+  | term=ExpressionTerm op='-' exp=Expression
+  | term=ExpressionTerm
+;
+
+ExpressionTerm:
+  factor=ExpressionFactor op='*' rhs=ExpressionFactor
+ | factor=ExpressionFactor
+;
+
+ExpressionFactor:
+  function=ID '(' args=Expression ("," args*=Expression)* ')'('.' layer=ID)? (index=Index)?
+  | '(' function=ID '(' args=Expression ("," args*=Expression)* ')'('.' layer=ID)? (index=Index)? ')'
+  | op=Operand
+  | '(' op=Operand ')'
+  | '(' exp=Expression ')'
+;
+
+Variable:
+  identifier=ID (index=Index)?
+;
+
+Operand:
+    val=Constant
+    | val=Variable
+    | val=Interval
+;
+
+ConstraintOperator:
+    '=' | '!=' | '>=' | '>' | '<=' | '<' | 'in'
+;
+
+Operands:
+    operands=Operand (',' operands*=Operand)*
+;
+
+Constant:
+    value=NUMBER
+;
+
+Shape:
+    '[' dims*=INT (',' dims*=INT)* ']'
+;
+
+Interval:
+    '[' start=NUMBER ',' end=NUMBER ']'
+;
+
+
+IND:
+  (INT)? (':')? (INT)? (',' (INT)? (':')? (INT)?)*
+;
+
+Index:
+    '[' val=IND ']'
+    | '[' var=Variable ']'
+;

@@ -1,0 +1,11 @@
+DS: MNIST, FASHION_MNIST, CIFAR, GTSRB
+FIND i[<<shape>>]
+S.T. class(<<classNN1>>(i), <<class1>>),
+     class(<<classNN2>>(i), <<class2>>),
+     <<classNN1>>(i).p[0, <<class1>>] > 0.5,
+     <<classNN2>>(i).p[0, <<class1>>] < 0.1,
+     <<classNN2>>(i).p[0, <<class2>>] > 0.5,
+     <<classNN1>>(i).p[0, <<class2>>] < 0.1,
+     <<img_constraint>>,
+     <<discriminatorNN>>(i) < 0.1
+RETURN i

@@ -1,0 +1,8 @@
+DS: MNIST, FASHION_MNIST, CIFAR, GTSRB
+FIND i[1, 100, 1, 1]
+S.T. i[:] in [-1, 1],
+     class(<<classNN1>>(<<generatorNN>>(i)), <<class1>>),
+     <<classNN1>>(<<generatorNN>>(i)).p[0, <<class1>>] > 0.3,
+     class(<<classNN2>>(<<generatorNN>>(i)),  <<class2>>),
+     <<classNN2>>(<<generatorNN>>(i)).p[0, <<class2>>] > 0.3
+RETURN <<generatorNN>>(i)

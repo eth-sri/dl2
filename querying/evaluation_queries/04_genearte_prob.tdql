@@ -1,0 +1,6 @@
+DS: MNIST, FASHION_MNIST, CIFAR, GTSRB, IMAGENET
+FIND i[<<shape>>]
+S.T. class(<<classNN>>(i), <<class>>),
+     <<classNN>>(i).p[0, <<class>>] > 0.8,
+     <<img_constraint>>
+RETURN i

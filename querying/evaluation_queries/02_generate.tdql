@@ -1,0 +1,4 @@
+DS: MNIST, FASHION_MNIST, CIFAR, GTSRB, IMAGENET
+FIND i[<<shape>>]
+S.T. class(<<classNN>>(i), <<class>>)
+RETURN i
