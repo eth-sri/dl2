@@ -248,10 +248,10 @@ elif args.dataset == 'cifar10':
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
 def RobustnessT(eps1, eps2):
-    return lambda model, use_cuda: RobustnessConstraint(model, eps1, eps2, use_cuda)
+    return lambda model, use_cuda: RobustnessDatasetConstraint(model, eps1, eps2, use_cuda=use_cuda)
 
 def RobustnessG(eps, delta):
-    return lambda model, use_cuda: RobustnessDatasetConstraint(model, eps, delta, use_cuda=use_cuda)
+    return lambda model, use_cuda: RobustnessConstraint(model, eps, delta, use_cuda)
 
 def LipschitzT(L):
     return lambda model, use_cuda: LipschitzDatasetConstraint(model, L, use_cuda)
@@ -263,18 +263,12 @@ def CSimilarityT(delta):
     return lambda model, use_cuda: CifarDatasetConstraint(model, delta, use_cuda)
 
 def CSimilarityG(eps, delta):
-    pass
+    pass # TODO
 
 def SegmentG(eps, delta):
     return lambda model, use_cuda: PairLineRobustnessConstraint(model, eps, delta, use_cuda)
 
-#    return lambda model, use_cuda: PairBoxConstraint(model, 9.0, 3.0, 0.95, use_cuda)
 constraint = eval(args.constraint)(model, use_cuda)
-#constraint = LipschitzDatasetConstraint(model, 1.0, use_cuda)
-#constraint = LipschitzConstraint(net=model, eps=0.3, l=0.1, use_cuda=use_cuda)
-#constraint = RobustnessConstraint(model, 0.3, 0.00001, use_cuda)
-#constraint = RobustnessDatasetConstraint(model, eps1=13.8, eps2=0.9, use_cuda=use_cuda)
-#constraint = ClosenessDatasetConstraint(model, 12.0, 0.1, use_cuda)
 oracle = DL2_Oracle(learning_rate=0.01, net=model, constraint=constraint, use_cuda=use_cuda)
 
 opt_type = 'dataset' if constraint.n_gvars == 0 else 'local'
