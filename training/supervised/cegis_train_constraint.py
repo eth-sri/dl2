@@ -14,7 +14,7 @@ from sklearn.decomposition import PCA
 import sys
 sys.path.append('../../')
 import dl2lib as dl2
-
+import time
 
 use_cuda = torch.cuda.is_available()
 
@@ -49,6 +49,7 @@ def embed_pca(data, embed_dim):
 
 
 def train(args, oracle, net, device, train_loader, optimizer, epoch, pca=None):
+    t1 = time.time()
     num_steps = 0
     avg_train_acc, avg_constr_acc = 0, 0
     avg_ce_loss, avg_nql_loss = 0, 0
@@ -109,13 +110,15 @@ def train(args, oracle, net, device, train_loader, optimizer, epoch, pca=None):
         tot_batch_loss = args.nql_weight * nql_batch_loss + ce_batch_loss
         tot_batch_loss.backward()
         optimizer.step()
-
+    t2 = time.time()
+        
     avg_train_acc /= float(num_steps)
     avg_constr_acc /= float(num_steps)
     avg_nql_loss /= float(num_steps)
     avg_ce_loss /= float(num_steps)
-
-    return avg_train_acc, avg_constr_acc, avg_nql_loss, avg_ce_loss
+    time = t2 - t1
+    
+    return avg_train_acc, avg_constr_acc, avg_nql_loss, avg_ce_loss, time
 
 
 def test(args, oracle, model, device, test_loader, pca=None):
@@ -293,19 +296,22 @@ data_dict = {
     'ce_loss': [],
     'p_acc': [],
     'c_acc': [],
+    'epoch_time': []
 }
 
 for epoch in range(1, args.num_epochs + 1):
-    avg_train_acc, avg_constr_acc, avg_nql_loss, avg_ce_loss = \
+    avg_train_acc, avg_constr_acc, avg_nql_loss, avg_ce_loss, epoch_time = \
         train(args, oracle, model, device, train_loader, optimizer, epoch, pca)
     data_dict['train_acc'].append(avg_train_acc)
     data_dict['constr_acc'].append(avg_constr_acc)
     data_dict['ce_loss'].append(avg_ce_loss)
     data_dict['nql_loss'].append(avg_nql_loss)
+    data_dict['epoch_time'].append(epoch_time)
 
     p, c = test(args, oracle, model, device, test_loader, pca)
     data_dict['p_acc'].append(p)
     data_dict['c_acc'].append(c)
+    print('Epoch Time:', epoch_time)
 
 with open(report_file, 'w') as fou:
     json.dump(data_dict, fou, indent=4)
