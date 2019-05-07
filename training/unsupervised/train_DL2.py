@@ -117,18 +117,6 @@ def train(epoch):
         err = torch.mean((dist - out) * (dist - out))
         tot_err += err
 
-        # dl2_loss = 0
-        # for a in range(1, g.n):
-        #     terms = 1.0
-        #     for b in range(g.n):
-        #         if adj[a, b]:
-        #             terms *= torch.abs(out[a] - (out[b] + 1))
-        #     dl2_loss += terms
-        # dl2_loss += torch.abs(out[0])
-
-        # for a in range(0, g.n):
-        #     dl2_loss += torch.clamp(-out[a], min=0)
-
         conjunction = []
         for a in range(1, g.n):
             disjunction = []
@@ -145,17 +133,10 @@ def train(epoch):
 
         tot_dl2_loss += dl2_loss.detach()
 
-
         tot_loss = dl2_loss
         tot_loss.backward()
 
-        # for p in model.parameters():
-        #     print('norm grad: ',torch.norm(p.grad))
-
         optimizer.step()
-
-    #print('Average error: ', tot_err / float(tot_lab))
-    #print('Average DL2: ', tot_dl2_loss / float(tot_unlab))
 
 
 def test(val=True, e=None):
@@ -186,8 +167,9 @@ def test(val=True, e=None):
 
     if e is not None:
         print(str(e) + ' ', end='')
-    print('[Valid] Average error: ', tot_err/float(len(valid_graphs)))
-    #print('[Valid] Baseline err: ', baseline_err/float(len(valid_graphs)))
+    print(f"[{'Valid' if val else 'Test'}] Average error: ", tot_err/float(len(valid_graphs)))
+    if not val:
+        print(f"[{'Valid' if val else 'Test'}] Baseline err: ", baseline_err/float(len(valid_graphs)))
 
 # Train model
 t_total = time.time()
