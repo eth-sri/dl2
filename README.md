@@ -15,10 +15,9 @@ The library allows training neural networks with logical constraints over numeri
 ```
 
 ## Installation
-Run with `python 3.6`.
-Install requirements `pip install -r requirements.txt`.
-
-Afterwards the folder dl2lib can be imported as a python library.
+DL2 was developed and tested with with `python 3.6`, but should also work with newer versions.
+All requirements can be installed via `pip install -r requirements.txt`.
+Afterwards the folder dl2lib can be imported as a python library (for details see examples).
 
 ## Reproducing Results and Examples
 For examples see the files in`training` and `querying`, which implement the experiments from the paper.
@@ -34,4 +33,4 @@ If you are using the library please also use the above citation to reference thi
 ## Contributors
 
 - [Marc Fischer](https://marcfischer.at) 
-- [Mislav Balunovic](https://www.sri.inf.ethz.ch/people/mislav)
+- [Mislav Balunović](https://www.sri.inf.ethz.ch/people/mislav)
