@@ -7,12 +7,30 @@ The library allows training neural networks with logical constraints over numeri
 
 ``` 
 .
-├── README.md        - This readme file
-├── dl2lib           - Library containing the DL2 loss
-├── training         - the experiments for training networks
-├── querying         - the experiments for querying networks
-└── requirements.txt - pip requirements
+├── README.md              - this readme file
+├── dl2lib                 - DL2 Library containing
+├── training               - the experiments for training networks
+│   ├── README.md          - more details on training networks with DL2
+│   ├── semisupservised
+│   │   ├── main.py        - script to run the semisupervised experiments
+│   │   └── run.sh         - calls the main.py script with the arguments to replicate the experiments from the paper
+│   ├── supervised
+│   │   ├── main.py        - script to run the supervised experiments
+│   │   ├── results.py     - takes the results-logs resulting from main.py and creates the tables and plots for the paper
+│   │   └── run.sh         - calls the other scripts with the arguments to replicate the experiments from the paper
+│   └── unsupervised
+│       ├── setup.sh       - installes prerequisite libraries
+│       ├── run.sh         - calls the train.py script with the arguments to replicate the experiments from the paper
+│       └── train_DL2.py   - script to run the unsupervised experiments
+├── querying               - the experiments for querying networks
+│   ├── README.md          - more details on querying networks with DL2
+│   ├── run.py             - runs the querying experiments from the paper
+│   ├── run_additional.py  - runs the additional querying experiments from the appendix
+│   └── train_models.sh    - downloads and trains the models required for the queries
+└── requirements.txt     - pip requirements
 ```
+
+Some files omitted.
 
 ## Installation
 DL2 was developed and tested with with `python 3.6`, but should also work with newer versions.
