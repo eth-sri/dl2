@@ -43,15 +43,13 @@ parser.add_argument('--dataset', default='cifar100', type=str, help='dataset = [
 parser.add_argument('--exp_name', default='', type=str, help='experiment name')
 parser.add_argument('--resume_from', type=str, default=None, help='resume from checkpoint')
 parser.add_argument('--testOnly', action='store_true', help='Test mode with the saved model')
-parser.add_argument('--constraint', type=str, choices=['DL2', 'ACL', 'semantic', 'none'], default='none', help='which constraint system to use')
+parser.add_argument('--constraint', type=str, choices=['DL2', 'none'], default='none', help='constraint system to use')
 parser.add_argument('--constraint-weight', '--constraint_weight', type=float, default=0.6, help='weight for constraint loss')
 parser.add_argument('--num_labeled', default=1000, type=int, help='Number of labeled examples (per class!).')
 parser.add_argument('--skip_labled', default=0, type=int, help='Number of labeled examples (per class!).')
 parser.add_argument('--decrease-eps-weight', default=1.0, type=float, help='Number of labeled examples (per class!).')
 parser.add_argument('--c-eps', default=0.05, type=float, help='Number of labeled examples (per class!).')
 parser.add_argument('--increase-constraint-weight', default=1.0, type=float, help='Number of labeled examples (per class!).')
-parser.add_argument('--DL2classic', action='store_true', help='Test mode with the saved model')
-parser.add_argument('--min', action='store_true', help='Test mode with the saved model')
 
 args = parser.parse_args()
 args.growing = bool(args.growing)
@@ -157,26 +155,6 @@ trainloader_unlab = torch.utils.data.DataLoader(
     trainset, batch_size=unlab_batch, sampler=train_unlabeled_sampler, num_workers=2)
 validloader = torch.utils.data.DataLoader(
     trainset, batch_size=batch_size, sampler=valid_sampler, num_workers=2)
-
-# # Return network & file name
-# def getNetwork(args):
-#     if (args.net_type == 'lenet'):
-#         net = LeNet(num_classes)
-#         file_name = 'lenet'
-#     elif (args.net_type == 'vggnet'):
-#         net = VGG(args.depth, num_classes)
-#         file_name = 'vgg-'+str(args.depth)
-#     elif (args.net_type == 'resnet'):
-#         net = ResNet(args.depth, num_classes)
-#         file_name = 'resnet-'+str(args.depth)
-#     elif (args.net_type == 'wide-resnet'):
-#         net = Wide_ResNet(args.depth, args.widen_factor, args.dropout, num_classes)
-#         file_name = 'wide-resnet-'+str(args.depth)+'x'+str(args.widen_factor)
-#     else:
-#         print('Error : Network should be either [LeNet / VGGNet / ResNet / Wide_ResNet')
-#         sys.exit(0)
-
-#     return net, file_name
 
 def getNetwork(args):
     if args.net_type == 'resnet':
@@ -326,72 +304,17 @@ def train(epoch):
         
         constraint_loss = 0
         if args.constraint == 'DL2':
-            if args.DL2classic:
-                nql_one_group = 0
-                for i in range(20):
-                    gsum = 0
-                    for j in g[i]:
-                        gsum += probs_u[:,j]
-                    if args.min:
-                        nql_one_group += torch.min(torch.clamp(1.0 - gsum, min=0.0), torch.clamp(gsum - 0.0, min=0.0))
-                    else:
-                        nql_one_group += torch.clamp(1.0 - gsum, min=0.0) * torch.clamp(gsum - 0.0, min=0.0)
-                nql_one_group = torch.mean(nql_one_group)
-                nql_loss = nql_one_group
-                dl2_loss = nql_loss.mean()
-            else:
-                eps = args.c_eps * args.decrease_eps_weight**epoch
-                dl2_one_group = []
-                for i in range(20):
-                    gsum = 0
-                    for j in g[i]:
-                        gsum += probs_u[:,j]
-                    dl2_one_group.append(dl2.Or([dl2.EQ(gsum, 1.0), dl2.EQ(gsum, 0.0)]))
-                dl2_one_group = dl2.And(dl2_one_group)
-                dl2_loss = dl2_one_group.loss(args).mean()
+            eps = args.c_eps * args.decrease_eps_weight**epoch
+            dl2_one_group = []
+            for i in range(20):
+                gsum = 0
+                for j in g[i]:
+                    gsum += probs_u[:,j]
+                dl2_one_group.append(dl2.Or([dl2.EQ(gsum, 1.0), dl2.EQ(gsum, 0.0)]))
+            dl2_one_group = dl2.And(dl2_one_group)
+            dl2_loss = dl2_one_group.loss(args).mean()
             constraint_loss = dl2_loss
             loss = ce_loss + (args.constraint_weight * args.increase_constraint_weight**epoch) * dl2_loss
-        elif args.constraint == 'semantic':
-            sem_loss = 0
-            for i in range(100):
-                term = 1.0
-                for j in range(100):
-                    if j != i:
-                        term = term * (1.0 - probs_u[:,j])
-                    else:
-                        term = term * probs_u[:,j]
-                sem_loss += term
-            sem_loss = torch.mean(-torch.log(sem_loss))
-            constraint_loss = sem_loss
-            loss = ce_loss + args.constraint_weight * sem_loss
-        elif args.constraint == 'ACL':
-            C = 1.0
-            LAMBDA = 1.0
-            probs_u = softmax(outputs_u)
-
-            q_u = torch.zeros((n_u, 100))
-            rs = []
-            for i in range(100):
-                mask = torch.zeros(100)
-                for j in range(100):
-                    if group[i] == group[j]:
-                        mask[j] = 1.0
-                mask = mask.cuda()
-
-                rs.append(torch.unsqueeze(probs_u.mv(Variable(mask)), dim=0))
-
-            r = torch.cat(rs, dim=0)
-            q_u = probs_u * torch.exp(-C * LAMBDA * (1.0 - r))
-            sum_q = torch.sum(q_u, dim=1)
-            q_u = q_u / sum_q.repeat(1,100)
-            q_u = Variable(q_u.data)
-            q_u.detach()
-
-            acl_loss = torch.sum(-q_u * logits_u,dim=1)
-            acl_loss = torch.mean(acl_loss)
-            constraint_loss = acl_loss           
-            pi = 1 - 0.97 ** epoch
-            loss = (1.0 - pi) * ce_loss + pi * constraint_loss
         else:
             loss = ce_loss
         loss.backward()  # Backward Propagation

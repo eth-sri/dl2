@@ -4,11 +4,13 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib import rcParams
 import sys
 
 datasets = ['mnist', 'fashion', 'cifar10']
 constraints = ['RobustnessT', 'RobustnessG', 'LipschitzT', 'LipschitzG', 'ClassT', 'ClassG', 'SegmentG']
 table = [[None for j in range(len(datasets)*2)] for i in range(len(constraints)*2)]
+time = [[None for j in range(len(datasets)*2)] for i in range(len(constraints))]
 history = [[None for j in range(len(datasets)*2)] for i in range(len(constraints)*2)]
 
 parser = argparse.ArgumentParser(description='Supervised DL2 Training Result printer')
@@ -29,7 +31,7 @@ def pick(p, c):
         return p[i], c[i]
     if args.strategy == 'prodMaxOfLast25':
         p, c = np.array(p[-25:]), np.array(c[-25:])
-        s = p * c
+        s = p * (c + 0.01) # to make sure we get the max even if c is 0
         i = np.argmax(s)
         return p[i], c[i]
     elif args.strategy == 'max':
@@ -97,7 +99,7 @@ def traverse(folder, postfix):
             table[i + 1][j] = c
             history[i][j] = data['p_acc']
             history[i + 1][j] = data['c_acc']    
-
+            time[constraints.index(name)][j] = np.array(data['epoch_time']).mean()
             print('\t', report, name, p, c)
         print()
     
@@ -118,9 +120,21 @@ traverse(G, 'G')
 
     
 print()
+print('P/C Accuracy')
 print(np.array(table, dtype=np.float).round(4) * 100)
 
+print()
+print('Avg Time per Epoch [s]')
+print(np.array(time, dtype=np.float).round(2))
+
+
 os.makedirs(args.plot_dir, exist_ok=True)
+
+rcParams['font.family'] = 'sans-serif'
+rcParams['font.sans-serif'] = ['Gill Sans MT']
+#plt.rc('text', usetex=True)
+
+fontsize=25
 
 for i, c in enumerate(constraints):
     for j, ds in enumerate(datasets):
@@ -130,24 +144,77 @@ for i, c in enumerate(constraints):
             p_dl2 = np.array(history[2 * i][2 * j + 1])
             c_dl2 = np.array(history[2 * i + 1][2 * j + 1])
             x = np.arange(len(history[2 * i][2 * j]))
-            f = plt.figure()
+
+
+
+            f = plt.figure(figsize=[12, 7.2]) # default size is 6.4, 4.8
             ax = plt.gca()
-            l1, = plt.plot(x, p_base, '-')
-            l2, = plt.plot(x, p_dl2, '-')
-            plt.plot(x, c_base, '--', color=l1.get_color())
-            plt.plot(x, c_dl2, '--', color=l2.get_color())
-            plt.xlabel('Epoch')
-            plt.ylabel('Accuracy', rotation=0)
-            ax.yaxis.set_label_coords(0.01, 1.02)
-            ax.set_facecolor( (0.9, 0.9, 0.9) )
+           
+            if not (ds == 'fashion' and c == 'SegmentG'):
+                l1, = plt.plot(x, p_base, '-C0', lw=2.0)
+                l2, = plt.plot(x, p_dl2, '-C1', lw=2.0)
+            else:
+                l1, = plt.plot(x, p_base, '-C3', lw=2.0)
+                l2, = plt.plot(x, p_dl2, '-C4', lw=2.0)
+
+            plt.plot(x, c_base, ':', color=l1.get_color(), lw=4.0)
+            plt.plot(x, c_dl2, ':', color=l2.get_color(), lw=4.0)
+
+            if (ds == 'fashion' and c == 'SegmentG'):
+                x = 208
+                ax.text(x, 0.20, "C-Acc, Baseline", fontsize=fontsize, color=l1.get_color())
+                ax.text(x, 0.50, "C-Acc, DL2", fontsize=fontsize, color=l2.get_color())
+                ax.text(x, 0.88, "P-Acc, Baseline", fontsize=fontsize, color=l1.get_color())
+                ax.text(x, 0.815, "P-Acc, DL2", fontsize=fontsize, color=l2.get_color())
+                ax.text(75, 0.62, '${Segment}^{G}, FASHION$', fontsize=30)
+                
+            if (ds == 'fashion' and c == 'LipschitzT'):
+                x = 208
+                ax.text(x, 0.05, "C-Acc, Baseline", fontsize=fontsize, color=l1.get_color())
+                ax.text(x, 0.985, "C-Acc, DL2", fontsize=fontsize, color=l2.get_color())
+                ax.text(x, 0.920, "P-Acc, Baseline", fontsize=fontsize, color=l1.get_color())
+                ax.text(x, 0.855, "P-Acc, DL2", fontsize=fontsize, color=l2.get_color())
+                ax.text(75, 0.52, '${Lipschitz}^{T}, FASHION$', fontsize=30)
+                
+            if not (ds == 'fashion' and c == 'LipschitzT'):
+                plt.xlabel('Epoch', fontsize=fontsize)
+
+            if not (ds == 'fashion' and c == 'SegmentG'):
+                plt.ylabel('Accuracy', rotation=0, fontsize=fontsize)
+                ax.yaxis.set_label_coords(0.01, 1.02)
+
+            #plt.xticks([10*i for i in range(])
+            ax.set_yticks([0.1*(2*i) for i in range(6)])
+            ax.set_yticks([0.1*(2*i + 1) for i in range(6)], minor=True)
+            ax.grid(which='minor', color=(1,1,1))
             ax.yaxis.grid(True, color=(1,1,1))
+
+            ax.set_xticks([50*i for i in range(5)])
+
+            plt.setp(ax.get_xticklabels(), fontsize=fontsize)
+            plt.setp(ax.get_yticklabels(), fontsize=fontsize)
+            
+            ax.set_facecolor( (0.97, 0.97, 0.97) )
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
             ax.spines['left'].set_visible(False)
-
-            p_line = Line2D([0], [0], color='k', linestyle='-')
-            c_line = Line2D([0], [0], color='k', linestyle='--')
-            ax.legend((l1, l2, p_line, c_line), ('Baseline', 'DL2', 'P', 'C'))
+            ax.set_ylim([0.0, 1.025])
+            ax.set_xlim([-5, 205])
             
+            # if ds == 'fashion' and c == 'LipschitzT':
+            #     m1, = ax.plot([], [], c='C0' , marker='s', markersize=20,
+            #                   fillstyle='left', linestyle='none')
+            #     m2, = ax.plot([], [], c='C3' , marker='s', markersize=20,
+            #                   fillstyle='right', linestyle='none')
+            #     m3, = ax.plot([], [], c='C1' , marker='s', markersize=20,
+            #                   fillstyle='left', linestyle='none')
+            #     m4, = ax.plot([], [], c='C4' , marker='s', markersize=20,
+            #                   fillstyle='right', linestyle='none')
+            #     p_line = Line2D([0], [0], color='k', linestyle='-')
+            #     c_line = Line2D([0], [0], color='k', linestyle=':', linewidth=4.0)            
+            #     ax.legend(((m2, m1), (m3, m4), p_line, c_line), ('Baseline', 'DL2', 'P', 'C'), loc=7, fontsize=fontsize, numpoints=1)
+
+            #ax.legend((l1, l2), ('Baseline', 'DL2'))
+            f.tight_layout()
             f = os.path.join(args.plot_dir, f"{c}_{ds}.eps")
             plt.savefig(f)

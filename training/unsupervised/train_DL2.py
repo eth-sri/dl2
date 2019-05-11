@@ -14,7 +14,6 @@ import random
 import sys
 sys.path.append('pygcn/pygcn')
 from utils import load_data, accuracy
-#from pygcn.models import GCN
 from layers import GraphConvolution
 from graphs import Graph
 sys.path.append('../../')
@@ -61,6 +60,9 @@ parser.add_argument('--hidden', type=int, default=1000,
                     help='number of units in hidden layers')
 parser.add_argument('-n', type=int, default=15,
                     help='number of nodes in the graph')
+parser.add_argument('--baseline', type=dl2.str2bool, default=False,
+                    help='run supervised learning baseline')
+
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -115,26 +117,25 @@ def train(epoch):
             dist = dist.cuda()
 
         err = torch.mean((dist - out) * (dist - out))
-        tot_err += err
-
-        conjunction = []
-        for a in range(1, g.n):
-            disjunction = []
-            for b in range(g.n):
-                if adj[a, b]:
-                    disjunction.append(dl2.EQ(out[a], out[b] + 1))
-                    conjunction.append(dl2.LEQ(out[a], out[b] + 1))
-                conjunction.append(dl2.Or(disjunction))
-        conjunction.append(dl2.EQ(out[0], 0))
-        for a in range(0, g.n):
-            conjunction.append(dl2.GEQ(out[0], 0))
-        constraint = dl2.And(conjunction)
-        dl2_loss = constraint.loss(args)
-
-        tot_dl2_loss += dl2_loss.detach()
-
-        tot_loss = dl2_loss
-        tot_loss.backward()
+        tot_err += err.detach()
+        if not args.baseline:
+            conjunction = []
+            for a in range(1, g.n):
+                disjunction = []
+                for b in range(g.n):
+                    if adj[a, b]:
+                        disjunction.append(dl2.EQ(out[a], out[b] + 1))
+                        conjunction.append(dl2.LEQ(out[a], out[b] + 1))
+                    conjunction.append(dl2.Or(disjunction))
+            conjunction.append(dl2.EQ(out[0], 0))
+            for a in range(0, g.n):
+                conjunction.append(dl2.GEQ(out[0], 0))
+            constraint = dl2.And(conjunction)
+            dl2_loss = constraint.loss(args)
+            dl2_loss.backward()
+            tot_dl2_loss += dl2_loss.detach()
+        else:
+            err.backward()
 
         optimizer.step()
 
@@ -167,9 +168,9 @@ def test(val=True, e=None):
 
     if e is not None:
         print(str(e) + ' ', end='')
-    print(f"[{'Valid' if val else 'Test'}] Average error: ", tot_err/float(len(valid_graphs)))
-    if not val:
-        print(f"[{'Valid' if val else 'Test'}] Baseline err: ", baseline_err/float(len(valid_graphs)))
+    print('[Valid] Average error: ', tot_err/float(len(valid_graphs)))
+    if val is False:
+        print('[Valid] Baseline err: ', baseline_err/float(len(valid_graphs)))
 
 # Train model
 t_total = time.time()
