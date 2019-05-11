@@ -1,12 +1,10 @@
 ## Training with DL2
 
-This directory constrains different examples of training with DL2.
+This directory constrains different examples of training neural networks with DL2 constraints.
 The dl2 library allows to express logical constraints as a loss over numerical terms.
-This loss can be used directly in training, as we do here in the semi-supervised and unsupervised experiments.
-For supervised training we use DL2 to specify constraints on the network involving the dataset. This allows us to find specific training examples inside and outside the training data to optimize for the constraint. Please see the paper for details.
 
-TODO link.
-TODO details
+This loss can be used directly in training, as we do here in the semi-supervised and unsupervised experiments.
+For supervised training we use DL2 to specify constraints on the network involving the dataset. This allows us to find specific training examples inside and outside the training data to optimize the network for the constraint. Please see the paper for details.
 
 ### Supervised Learning
 The experiments from the paper can be run via the command line switches on `main.py`.

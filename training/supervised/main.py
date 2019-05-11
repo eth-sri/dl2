@@ -1,6 +1,3 @@
-# TODO nan issues
-# TODO nql -> dl2
-
 import argparse
 import os
 import torch

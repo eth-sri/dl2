@@ -1,13 +1,13 @@
 ## DL2 querying
 
-DL2 allows to query, previously trained, neural networks for their inputs.
+DL2 allows to query previously trained neural networks (or other models implemented in PyTorch).
 
 Querying can be done with two different APIs:
 - the Querying DSL, introduced in the paper, and
 - the Querying API.
 
 Both expose the same features and the DSL is implemented in terms of the API.
-Depending on the task one or the other can be easier to use.
+Depending on the task at hand one or the other can be easier to use.
 
 ### Querying DSL
 This uses the same syntax as in the paper to query networks.

@@ -71,3 +71,5 @@ mv *.png gtsrb
 cd ..
 
 
+echo "Since we can not download ImageNet for you. You will need to download ImageNet yourself and place a selection of it in the folder models/Imagenet_selection. See file Imagenet.md for the correct layout:"
+cat Imagenet.md

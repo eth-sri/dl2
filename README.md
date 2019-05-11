@@ -1,26 +1,28 @@
 # DL2: Training and Querying Neural Networks with Logic
 
-This is the implementation of DL2, that can be used as a library compatible with pytorch and that can be used to reproduce the results of the paper.
-The library allows training neural networks with logical constraints over numerical values in the network (e.g. inputs, outputs, weights) and to query networks for inputs fulfilling a logical formula.
+DL2 is a framework that allows training neural networks with logical constraints over numerical values in the network (e.g. inputs, outputs, weights) and to query networks for inputs fulfilling a logical formula.
+
+This is implementation of DL2 can be used as a library compatible with PyTorch and can be used to reproduce the results of the DL2 research paper.
+
 
 ## Structure
 
  ```
 .
 ├── README.md              - this  file
-├── dl2lib                 - DL2 Library containing
+├── dl2lib                 - DL2 Library
 ├── training               - the experiments for training networks
 │   ├── README.md          - more details on training networks with DL2
 │   ├── semisupservised
 │   │   ├── main.py        - script to run the semi-supervised experiments
-│   │   └── run.sh         - calls the main.py script with the arguments to replicate the experiments from the paper
+│   │   └── run.sh         - replicates the experiments from the paper
 │   ├── supervised
 │   │   ├── main.py        - script to run the supervised experiments
-│   │   ├── results.py     - takes the results-logs resulting from main.py and creates the tables and plots for the paper
-│   │   └── run.sh         - calls the other scripts with the arguments to replicate the experiments from the paper
+│   │   ├── results.py     - creates the tables and plots for the paper
+│   │   └── run.sh         - replicates the experiments from the paper
 │   └── unsupervised
 │       ├── setup.sh       - installs prerequisite libraries
-│       ├── run.sh         - calls the train.py script with the arguments to replicate the experiments from the paper
+│       ├── run.sh         - replicates the experiments from the paper
 │       └── train_DL2.py   - script to run the unsupervised experiments
 ├── querying               - the experiments for querying networks
 │   ├── README.md          - more details on querying networks with DL2
