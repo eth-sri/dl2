@@ -26,7 +26,7 @@ class BoolConst:
         return 1.0 - self.x
 
     def satisfy(self, args):
-        ret = self.x > (1 - args.eps)
+        ret = self.x >= (1 - args.eps_const)
         return ret
 
 class GT(Condition):
@@ -43,7 +43,7 @@ class GT(Condition):
             return torch.clamp(diffsat_delta(self.b, self.a), min=0.0) + torch.eq(self.a, self.b).type(self.a.type())
 
     def satisfy(self, args):
-        return self.a > self.b
+        return self.a > self.b + args.eps_check
 
 
 class LT(Condition):
@@ -60,7 +60,7 @@ class LT(Condition):
             return torch.clamp(diffsat_delta(self.a, self.b), min=0.0) + torch.eq(self.a, self.b).type(self.a.type())
             
     def satisfy(self, args):
-        return self.a < self.b
+        return self.a + args.eps_check < self.b
 
 
 class EQ(Condition):
@@ -73,7 +73,7 @@ class EQ(Condition):
         return diffsat_theta(self.a, self.b)
 
     def satisfy(self, args):
-        return torch.abs(self.a - self.b) < args.eps
+        return torch.abs(self.a - self.b) <= args.eps_check
 
 class GEQ(Condition):
     """ a >= b """
@@ -86,7 +86,7 @@ class GEQ(Condition):
         return torch.clamp(diffsat_delta(self.b, self.a), min=0.0)
 
     def satisfy(self, args):
-        return self.a >= self.b
+        return self.a + args.eps_check >= self.b
 
 
 class LEQ(Condition):
@@ -100,7 +100,7 @@ class LEQ(Condition):
         return torch.clamp(diffsat_delta(self.a, self.b), min=0.0)
 
     def satisfy(self, args):
-        return self.a <= self.b
+        return self.a <= self.b + args.eps_check
 
 class And(Condition):
     """ E_1 & E_2 & ... E_k """
@@ -116,7 +116,7 @@ class And(Condition):
         ret = None
         for exp in self.exprs:
             sat = exp.satisfy(args)
-            if not isinstance(sat, np.ndarray):
+            if not isinstance(sat, (np.ndarray, np.generic)):
                 sat = sat.cpu().numpy()
             if ret is None:
                 ret = sat.copy()
@@ -141,7 +141,7 @@ class Or(Condition):
         ret = None
         for exp in self.exprs:
             sat = exp.satisfy(args)
-            if not isinstance(sat, np.ndarray):
+            if not isinstance(sat, (np.ndarray, np.generic)):
                 sat = sat.cpu().numpy()
             if ret is None:
                 ret = sat.copy()

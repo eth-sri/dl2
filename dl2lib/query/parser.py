@@ -130,7 +130,10 @@ class Parser:
 
     def traverse_constraint(self, constraint):
         if constraint.is_class:
-            return self.traverse_function_application('class', constraint.args, None, None)
+            args = constraint.args
+            if constraint.rhs is not None:
+                args.append(constraint.rhs)
+            return self.traverse_function_application('class', args, None, None)
         lhs = self.traverse_expression(constraint.lhs)
         rhs = self.traverse_expression(constraint.rhs)
         if constraint.op == 'in':

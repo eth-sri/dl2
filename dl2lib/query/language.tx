@@ -45,8 +45,9 @@ Disjunction:
 ;
 
 Constraint:
-    lhs=Expression op=ConstraintOperator rhs=Expression
-    | is_class?='class' '(' args=Expression ("," args*=Expression)* ')'
+    is_class?='class' '(' args=Expression ("," args*=Expression)* ')' ('=' rhs=Expression)?
+    | lhs=Expression op=ConstraintOperator rhs=Expression
+
 
 ;
 

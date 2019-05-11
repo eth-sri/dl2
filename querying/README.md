@@ -29,6 +29,9 @@ args = parser.parse_args() # additionaly arguments such as timeout etc.
 success, result, time = q.Query(qtext, context=context, args=args).run()
 ```
 
+Note that the `class(NN(x)) = y` constraint from the paper can also be written as `class(NN(x), y)`. Both versions are equivalent and the first is just syntactic sugar for the second.
+
+
 ### Querying API
 The querying API allows a lower-level access to DL2 while providing access to the same constructs as the DSL.
 For an example see the snipped below and queries 1 and 2 from the "Additional Experiments" in the Appendix of the paper in `run_additional.py`.
@@ -48,6 +51,7 @@ a = i[0] + i[3]
 b = NN(i[4])
 success, r, t = q.solve(a < b, return_values=[i])
 ```
+
 
 ### Installation and Experiments
 `train_models.sh` downloads and trains several neural networks on common classification tasks.

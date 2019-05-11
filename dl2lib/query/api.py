@@ -440,8 +440,15 @@ class ModelLayer(Model):
 def simplify(constraint, args):
     if args.opt == 'lbfgsb':
         boxes = constraint.get_box_constraints()
-        constraint = constraint.simplify(delete_box_constraints=True)
-        variables = list(set(constraint.get_variables()))
+        constraint_s = constraint.simplify(delete_box_constraints=True)
+        variables = list(set(constraint_s.get_variables()))
+        if len(variables) == 0:
+            # if we removed all variables, add dummy constraint
+            variables = list(set(constraint.get_variables()))
+            c = []
+            for v in variables:
+                c.append(v.eq_(v))
+            constraint_s = And(*c)
         bounds = {}
         for var in variables:
             bounds[var] = (torch.zeros_like(var.tensor).view(-1).cpu().numpy(), torch.zeros_like(var.tensor).view(-1).cpu().numpy())
@@ -460,31 +467,32 @@ def simplify(constraint, args):
                 is_lower = box.t in ["eq", "ge", "gt"]
             var = setop.get_variables()[0]
             value = const.to_diffsat(cache=False).detach().cpu().numpy()
+
             if is_lower:
                 bounds[var][0].__setitem__(setop.args[1], value)
             if is_upper:
                 bounds[var][1].__setitem__(setop.args[1], value)
     else:
-        constraint = constraint.simplify(delete_box_constraints=True)
-        variables = list(set(constraint.get_variables()))
+        constraint_s = constraint.simplify(delete_box_constraints=False)
+        variables = list(set(constraint_s.get_variables()))
         bounds = None
-    return constraint, variables, bounds
+    return constraint_s, variables, bounds
 
-def inner_opt(constraint, variables, bounds, args):
+def inner_opt(constraint_solve, constraint_check, variables, bounds, args):
     if args.opt == 'lbfgsb':    
         sgd = optim.SGD([v.tensor for v in variables], lr=0.0)
         for i in range(args.opt_iterations):
-            satisfied = constraint.to_diffsat(cache=True).satisfy(args)
+            satisfied = constraint_check.to_diffsat(cache=True).satisfy(args)
             if satisfied:
                 break
-            lbfgsb(variables, bounds, lambda: constraint.to_diffsat(cache=True, reset_cache=True).loss(args), lambda: sgd.zero_grad())
+            lbfgsb(variables, bounds, lambda: constraint_solve.to_diffsat(cache=True, reset_cache=True).loss(args), lambda: sgd.zero_grad())
     else:
         optimizer = args.opt([v.tensor for v in variables], lr=args.lr)
         for i in range(args.opt_max_iterations):
-            satisfied = constraint.to_diffsat(cache=True).satisfy(args)
+            satisfied = constraint_check.to_diffsat(cache=True).satisfy(args)
             if satisfied:
                 break
-            loss = constraint.to_diffsat(cache=True, reset_cache=True).loss(args)
+            loss = constraint_solve.to_diffsat(cache=True, reset_cache=True).loss(args)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -506,28 +514,28 @@ def vars_to_x(variables):
     return x, shapes, shapes_flat
 
 
-def basinhopping(constraint, variables, bounds, args):
+def basinhopping(constraint_solve, constraint_check, variables, bounds, args):
     x0, shapes, shapes_flat = vars_to_x(variables)
     
     def loss_fn(x):
         x_to_vars(x, variables, shapes_flat, shapes)
-        return constraint.to_diffsat(cache=True).loss(args)
+        return constraint_solve.to_diffsat(cache=True).loss(args)
 
     def local_optimization_step(fun, x0, *losargs, **loskwargs):
         loss_before = loss_fn(x0)
-        inner_opt(constraint, variables, bounds, args)
+        inner_opt(constraint_solve, constraint_check, variables, bounds, args)
         r = spo.OptimizeResult()
         r.x, _, _ = vars_to_x(variables)
-        loss_after = constraint.to_diffsat(cache=True).loss(args)
-        r.success = not (loss_before == loss_after and not constraint.to_diffsat(cache=True).satisfy(args))
+        loss_after = constraint_solve.to_diffsat(cache=True).loss(args)
+        r.success = not (loss_before == loss_after and not constraint_check.to_diffsat(cache=True).satisfy(args))
         r.fun = loss_after
         return r
 
     def check_basinhopping(x, f, accept):
-        if abs(f) <= 10 * args.eps:
+        if abs(f) <= 10 * args.eps_check:
             x_, _, _ = vars_to_x(variables)
             x_to_vars(x, variables, shapes_flat, shapes)
-            if constraint.to_diffsat(cache=True).satisfy(args):
+            if constraint_check.to_diffsat(cache=True).satisfy(args):
                 return True
             else:
                 x_to_vars(x_, variables, shapes_flat, shapes)
@@ -536,12 +544,12 @@ def basinhopping(constraint, variables, bounds, args):
     minimizer_kwargs = {}
     minimizer_kwargs['method'] = local_optimization_step
 
-    satisfied = constraint.to_diffsat(cache=True).satisfy(args)
+    satisfied = constraint_check.to_diffsat(cache=True).satisfy(args)
     if satisfied:
         return True
     spo.basinhopping(loss_fn, x0, niter=1000, minimizer_kwargs=minimizer_kwargs, callback=check_basinhopping,
                      T=args.basinhopping_T, stepsize=args.basinhopping_stepsize)
-    return constraint.to_diffsat(cache=True).satisfy(args)
+    return constraint_check.to_diffsat(cache=True).satisfy(args)
 
 class TimeoutException(Exception):
     pass
@@ -550,16 +558,20 @@ def solve(constraint, args, return_values=None):
     def solve_(constraint, args, return_values=None):
         t0 = time.time()
         if constraint is not None:
-            constraint, variables, bounds = simplify(constraint, args)
+            constraint_s, variables, bounds = simplify(constraint, args)
             if args.use_basinhopping:
-                satisfied = basinhopping(constraint, variables, bounds, args)
+                satisfied = basinhopping(constraint_s, constraint, variables, bounds, args)
             else:
-                satisfied = inner_opt(constraint, variables, bounds, args)
+                satisfied = inner_opt(constraint_s, constraint, variables, bounds, args)
         else:
             satisfied = True
 
         if return_values is None:
-            ret = dict([(v.name, v.tensor.detach().cpu().numpy()) for v in variables])
+            if constraint is not None:
+                variables = list(set(constraint.get_variables()))
+                ret = dict([(v.name, v.tensor.detach().cpu().numpy()) for v in variables])
+            else:
+                ret = dict()
         else:
             ret = [(str(r), r.to_diffsat(cache=True).detach().cpu().numpy()) for r in return_values]
             if len(ret) == 1:
