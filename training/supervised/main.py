@@ -14,7 +14,7 @@ from sklearn.decomposition import PCA
 import sys
 sys.path.append('../../')
 import dl2lib as dl2
-
+import time
 
 use_cuda = torch.cuda.is_available()
 
@@ -49,9 +49,10 @@ def embed_pca(data, embed_dim):
 
 
 def train(args, oracle, net, device, train_loader, optimizer, epoch, pca=None):
+    t1 = time.time()
     num_steps = 0
     avg_train_acc, avg_constr_acc = 0, 0
-    avg_ce_loss, avg_nql_loss = 0, 0
+    avg_ce_loss, avg_dl2_loss = 0, 0
     ce_loss = torch.nn.CrossEntropyLoss()
 
     print('Epoch ', epoch)
@@ -68,8 +69,8 @@ def train(args, oracle, net, device, train_loader, optimizer, epoch, pca=None):
         x_outputs = net(x_batch)
         x_correct = torch.mean(torch.argmax(x_outputs, dim=1).eq(y_batch).float())
         ce_batch_loss = ce_loss(x_outputs, y_batch)
-
-        if epoch <= args.delay or args.nql_weight < 1e-7:
+        
+        if epoch <= args.delay or args.dl2_weight < 1e-7:
             net.train()
             optimizer.zero_grad()
             ce_batch_loss.backward()
@@ -91,31 +92,33 @@ def train(args, oracle, net, device, train_loader, optimizer, epoch, pca=None):
         if oracle.constraint.n_gvars > 0:
             domains = oracle.constraint.get_domains(x_batches, y_batches)
             z_batches = oracle.general_attack(x_batches, y_batches, domains, num_restarts=1, num_iters=args.num_iters, args=args)
-            _, nql_batch_loss, constr_acc = oracle.evaluate(x_batches, y_batches, z_batches, args)
+            _, dl2_batch_loss, constr_acc = oracle.evaluate(x_batches, y_batches, z_batches, args)
         else:
-            _, nql_batch_loss, constr_acc = oracle.evaluate(x_batches, y_batches, None, args)
+            _, dl2_batch_loss, constr_acc = oracle.evaluate(x_batches, y_batches, None, args)
 
         avg_train_acc += x_correct.item()
         avg_constr_acc += constr_acc.item()
         avg_ce_loss += ce_batch_loss.item()
-        avg_nql_loss += nql_batch_loss.item()
+        avg_dl2_loss += dl2_batch_loss.item()
 
         if batch_idx % args.print_freq == 0:
             print('[%d] Train acc: %.4f, Constr acc: %.4f, CE loss: %.3lf, DL2 loss: %.3lf' % (
-                batch_idx, x_correct.item(), constr_acc.item(), ce_batch_loss.item(), nql_batch_loss.item()))
+                batch_idx, x_correct.item(), constr_acc.item(), ce_batch_loss.item(), dl2_batch_loss.item()))
         
         net.train()
         optimizer.zero_grad()
-        tot_batch_loss = args.nql_weight * nql_batch_loss + ce_batch_loss
+        tot_batch_loss = args.dl2_weight * dl2_batch_loss + ce_batch_loss
         tot_batch_loss.backward()
         optimizer.step()
-
+    t2 = time.time()
+        
     avg_train_acc /= float(num_steps)
     avg_constr_acc /= float(num_steps)
-    avg_nql_loss /= float(num_steps)
+    avg_dl2_loss /= float(num_steps)
     avg_ce_loss /= float(num_steps)
-
-    return avg_train_acc, avg_constr_acc, avg_nql_loss, avg_ce_loss
+    t = t2 - t1
+    
+    return avg_train_acc, avg_constr_acc, avg_dl2_loss, avg_ce_loss, t
 
 
 def test(args, oracle, model, device, test_loader, pca=None):
@@ -145,9 +148,9 @@ def test(args, oracle, model, device, test_loader, pca=None):
         if oracle.constraint.n_gvars > 0:
             domains = oracle.constraint.get_domains(x_batches, y_batches)
             z_batches = oracle.general_attack(x_batches, y_batches, domains, num_restarts=1, num_iters=args.num_iters, args=args)
-            _, nql_batch_loss, constr_acc = oracle.evaluate(x_batches, y_batches, z_batches, args)
+            _, dl2_batch_loss, constr_acc = oracle.evaluate(x_batches, y_batches, z_batches, args)
         else:
-            _, nql_batch_loss, constr_acc = oracle.evaluate(x_batches, y_batches, None, args)
+            _, dl2_batch_loss, constr_acc = oracle.evaluate(x_batches, y_batches, None, args)
 
         output = model(x_batch)
         test_loss += loss(output, y_batch).item()  # sum up batch loss
@@ -170,16 +173,16 @@ parser = dl2.add_default_parser_args(parser)
 parser.add_argument('--batch-size', type=int, default=128, help='Number of samples in a batch.')
 parser.add_argument('--num-iters', type=int, default=50, help='Number of oracle iterations.')
 parser.add_argument('--num-epochs', type=int, default=300, help='Number of epochs to train for.')
-parser.add_argument('--exp-name', type=str, default='', help='Name of the experiment.')
-parser.add_argument('--nql-weight', type=float, default=0.0, help='Weight of DL2 loss.')
+parser.add_argument('--dl2-weight', type=float, default=0.0, help='Weight of DL2 loss.')
 parser.add_argument('--dataset', type=str, default='mnist', help='Dataset on which to train.')
 parser.add_argument('--pretrained', action='store_true', help='Whether to use pretrained model.')
 parser.add_argument('--embed', action='store_true', help='Whether to embed the points.')
 parser.add_argument('--delay', type=int, default=0, help='How many epochs to wait before training with constraints.')
 parser.add_argument('--print-freq', type=int, default=10, help='Print frequency.')
 parser.add_argument('--report-dir', type=str, required=True, help='Directory where results should be stored')
-parser.add_argument('--constraint', type=str, required=True, help='the constraint to train with: LipschitzT(L), LipschitzG(eps, L), RobustnessT(eps1, eps2), RobustnessG(eps, delta), CSimiliarityT(), CSimilarityG(),LineSegmentG()')
+parser.add_argument('--constraint', type=str, required=True, help='the constraint to train with: LipschitzT(L), LipschitzG(eps, L), RobustnessT(eps1, eps2), RobustnessG(eps, delta), CSimiliarityT(), CSimilarityG(), LineSegmentG()')
 parser.add_argument('--embed-dim', type=int, default=40, help='embed dim')
+parser.add_argument('--network-output', type=str, choices=['logits', 'prob', 'logprob'], default='logits', help='Wether to treat the output of the network as logits, probabilities or log(probabilities) in the constraints.')
 args = parser.parse_args()
 
 torch.manual_seed(42)
@@ -248,36 +251,30 @@ elif args.dataset == 'cifar10':
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
 def RobustnessT(eps1, eps2):
-    return lambda model, use_cuda: RobustnessConstraint(model, eps1, eps2, use_cuda)
+    return lambda model, use_cuda, network_output: RobustnessDatasetConstraint(model, eps1, eps2, use_cuda=use_cuda, network_output=network_output)
 
 def RobustnessG(eps, delta):
-    return lambda model, use_cuda: RobustnessDatasetConstraint(model, eps, delta, use_cuda=use_cuda)
+    return lambda model, use_cuda, network_output: RobustnessConstraint(model, eps, delta, use_cuda, network_output=network_output)
 
 def LipschitzT(L):
-    return lambda model, use_cuda: LipschitzDatasetConstraint(model, L, use_cuda)
+    return lambda model, use_cuda, network_output: LipschitzDatasetConstraint(model, L, use_cuda, network_output=network_output)
 
 def LipschitzG(eps, L):
-    return lambda model, use_cuda: LipschitzConstraint(model, eps=eps, l=L, use_cuda=use_cuda)
+    return lambda model, use_cuda, network_output: LipschitzConstraint(model, eps=eps, l=L, use_cuda=use_cuda, network_output=network_output)
 
 def CSimilarityT(delta):
-    return lambda model, use_cuda: CifarDatasetConstraint(model, delta, use_cuda)
+    return lambda model, use_cuda, network_output: CifarDatasetConstraint(model, delta, use_cuda, network_output=network_output)
 
 def CSimilarityG(eps, delta):
-    pass
+    return lambda model, use_cuda, network_output: CifarConstraint(model, eps, delta, use_cuda, network_output=network_output)
 
 def SegmentG(eps, delta):
-    return lambda model, use_cuda: PairLineRobustnessConstraint(model, eps, delta, use_cuda)
+    return lambda model, use_cuda, network_output: PairLineRobustnessConstraint(model, eps, delta, use_cuda, network_output=network_output)
 
-#    return lambda model, use_cuda: PairBoxConstraint(model, 9.0, 3.0, 0.95, use_cuda)
-constraint = eval(args.constraint)(model, use_cuda)
-#constraint = LipschitzDatasetConstraint(model, 1.0, use_cuda)
-#constraint = LipschitzConstraint(net=model, eps=0.3, l=0.1, use_cuda=use_cuda)
-#constraint = RobustnessConstraint(model, 0.3, 0.00001, use_cuda)
-#constraint = RobustnessDatasetConstraint(model, eps1=13.8, eps2=0.9, use_cuda=use_cuda)
-#constraint = ClosenessDatasetConstraint(model, 12.0, 0.1, use_cuda)
+constraint = eval(args.constraint)(model, use_cuda, network_output=args.network_output)
 oracle = DL2_Oracle(learning_rate=0.01, net=model, constraint=constraint, use_cuda=use_cuda)
 
-opt_type = 'dataset' if constraint.n_gvars == 0 else 'local'
+opt_type = 'T' if constraint.n_gvars == 0 else 'G'
 report_dir = os.path.dirname(
     os.path.join(args.report_dir, '%s/%s/%s' % (opt_type, args.dataset, constraint.name)))
 
@@ -286,32 +283,38 @@ if not os.path.exists(report_dir):
 
 tstamp = int(time.time())
 
-report_file = os.path.join(report_dir, 'report_%s_%d.json' % (args.exp_name, tstamp))
+exptype = 'baseline' if args.dl2_weight < 1e-7 else 'dl2'
+report_file = os.path.join(report_dir, 'report_%s_%s_%d.json' % (constraint.name, exptype, tstamp))
 data_dict = {
-    'nql_weight': args.nql_weight,
+    'dl2_weight': args.dl2_weight,
     'pretrained': args.pretrained,
     'delay': args.delay,
+    'name': constraint.name,
+    'constraint_txt': args.constraint,
     'constraint_params': constraint.params(),
     'num_iters': args.num_iters,
     'train_acc': [],
     'constr_acc': [],
-    'nql_loss': [],
+    'dl2_loss': [],
     'ce_loss': [],
     'p_acc': [],
     'c_acc': [],
+    'epoch_time': []
 }
 
 for epoch in range(1, args.num_epochs + 1):
-    avg_train_acc, avg_constr_acc, avg_nql_loss, avg_ce_loss = \
+    avg_train_acc, avg_constr_acc, avg_dl2_loss, avg_ce_loss, epoch_time = \
         train(args, oracle, model, device, train_loader, optimizer, epoch, pca)
     data_dict['train_acc'].append(avg_train_acc)
     data_dict['constr_acc'].append(avg_constr_acc)
     data_dict['ce_loss'].append(avg_ce_loss)
-    data_dict['nql_loss'].append(avg_nql_loss)
+    data_dict['dl2_loss'].append(avg_dl2_loss)
+    data_dict['epoch_time'].append(epoch_time)
 
     p, c = test(args, oracle, model, device, test_loader, pca)
     data_dict['p_acc'].append(p)
     data_dict['c_acc'].append(c)
+    print('Epoch Time [s]:', epoch_time)
 
 with open(report_file, 'w') as fou:
     json.dump(data_dict, fou, indent=4)

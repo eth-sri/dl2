@@ -9,7 +9,7 @@ EvalProgram:
 
 FindProgram:
     'FIND' variable_declarations=VariableDeclarations
-    ('SUCH THAT' | 'S.T.' | 'ST') constraints=Constraints
+    ('SUCH THAT' | 'S.T.' | 'ST' | 'WHERE') constraints=Constraints
     (('INITIALIZE'|'INIT') variable_initialization=Initializations)?
     ('RETURN' return_values=Returns)?
 ;
@@ -45,8 +45,9 @@ Disjunction:
 ;
 
 Constraint:
-    lhs=Expression op=ConstraintOperator rhs=Expression
-    | is_class?='class' '(' args=Expression ("," args*=Expression)* ')'
+    is_class?='class' '(' args=Expression ("," args*=Expression)* ')' ('=' rhs=Expression)?
+    | lhs=Expression op=ConstraintOperator rhs=Expression
+
 
 ;
 

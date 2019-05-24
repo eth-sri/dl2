@@ -12,6 +12,8 @@ def str2bool(v):
 def add_default_parser_args(parser, query=False):
     parser.add("--use-eps", type=str2bool, default=False, required=False, help="use the +epsilon translation for strict inequalities")
     parser.add("--eps", type=float, default=1e-5, required=False, help="the epsilon used for strict inequalities")
+    parser.add("--eps-const", type=float, default=1e-5, required=False, help="the epsilon for boolean constants")
+    parser.add("--eps-check", type=float, default=0, required=False, help="the epsilon for checking comparisons of floating point values; note that a nonzero value slightly changes the semantics of DL2")
     parser.add("--or", type=str, default='mul', choices=['mul', 'min'], required=False, help="encoding for or; either multiplication or minimum")
     parser.add("--cuda", type=str2bool, default=True, required=False, help="use cuda if available")
     if query:

@@ -59,7 +59,7 @@ class DL2_Oracle:
                     for i in range(n_batch):
                         z_batches[j][i] = domains[j][i].project(z_batches[j][i])
 
-            return z_batches # TODO: support multiple retries
+            return z_batches
 
     def evaluate(self, x_batches, y_batches, z_batches, args):
         neg_losses, pos_losses, sat, _ = self.constraint.loss(x_batches, y_batches, z_batches, args)

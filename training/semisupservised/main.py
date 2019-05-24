@@ -7,12 +7,15 @@ import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 import torchvision
 import torchvision.transforms as transforms
+import itertools
 import os
 import sys
 import time
 import argparse
+import datetime
 import pickle
 import numpy as np
+import sys
 import math
 sys.path.append('wide-resnet.pytorch')
 import config as cf
@@ -40,14 +43,13 @@ parser.add_argument('--dataset', default='cifar100', type=str, help='dataset = [
 parser.add_argument('--exp_name', default='', type=str, help='experiment name')
 parser.add_argument('--resume_from', type=str, default=None, help='resume from checkpoint')
 parser.add_argument('--testOnly', action='store_true', help='Test mode with the saved model')
-parser.add_argument('--constraint', type=str, choices=['DL2', 'none'], default='none', help='which constraint system to use')
+parser.add_argument('--constraint', type=str, choices=['DL2', 'none'], default='none', help='constraint system to use')
 parser.add_argument('--constraint-weight', '--constraint_weight', type=float, default=0.6, help='weight for constraint loss')
 parser.add_argument('--num_labeled', default=1000, type=int, help='Number of labeled examples (per class!).')
 parser.add_argument('--skip_labled', default=0, type=int, help='Number of labeled examples (per class!).')
 parser.add_argument('--decrease-eps-weight', default=1.0, type=float, help='Number of labeled examples (per class!).')
 parser.add_argument('--c-eps', default=0.05, type=float, help='Number of labeled examples (per class!).')
 parser.add_argument('--increase-constraint-weight', default=1.0, type=float, help='Number of labeled examples (per class!).')
-parser.add_argument('--min', action='store_true', help='Test mode with the saved model')
 
 args = parser.parse_args()
 args.growing = bool(args.growing)
@@ -86,7 +88,9 @@ with open('groups.txt') as f:
 
 # Hyper Parameter settings
 use_cuda = torch.cuda.is_available()
+print(use_cuda)
 best_acc = 0
+best_model = None
 start_epoch, num_epochs, batch_size, optim_type = cf.start_epoch, cf.num_epochs, cf.batch_size, cf.optim_type
 num_epochs = args.epochs
 # Data Uplaod
@@ -150,7 +154,7 @@ trainloader_lab = torch.utils.data.DataLoader(
 trainloader_unlab = torch.utils.data.DataLoader(
     trainset, batch_size=unlab_batch, sampler=train_unlabeled_sampler, num_workers=2)
 validloader = torch.utils.data.DataLoader(
-    trainset, batch_size=batch_size, sampler
+    trainset, batch_size=batch_size, sampler=valid_sampler, num_workers=2)
 
 def getNetwork(args):
     if args.net_type == 'resnet':
@@ -259,7 +263,6 @@ def train(epoch):
     train_loss = 0
     correct = 0
     total = 0
-    #optimizer = optim.SGD(net.parameters(), lr=cf.learning_rate(args.lr, epoch), momentum=0.9, weight_decay=5e-4)
     optimizer = optim.Adam(net.parameters(), lr=args.lr)
     softmax = torch.nn.Softmax()
 
@@ -287,15 +290,15 @@ def train(epoch):
             all_outputs = net(torch.cat([inputs, inputs_u], dim=0))
 
         optimizer.zero_grad()
-        outputs_u = all_outputs[n:, ]
+        outputs_u = all_outputs[n:,]
         logits_u = F.log_softmax(outputs_u)
         probs_u = softmax(outputs_u)
 
-        outputs = all_outputs[:n, ]
+        outputs = all_outputs[:n,]
         if args.skip_labled:
             ce_loss = 0
         else:
-            outputs = all_outputs[:n, ]
+            outputs = all_outputs[:n,]
             ce_loss = criterion(outputs, targets)  # Loss
         
         constraint_loss = 0
@@ -305,11 +308,8 @@ def train(epoch):
             for i in range(20):
                 gsum = 0
                 for j in g[i]:
-                    gsum += probs_u[:, j]
-                dl2_one_group.append(dl2.Or([dl2.GT(gsum, 1.0 - eps), dl2.LT(gsum, eps)]))
-            if args.growing:
-                n = min(max(1, (epoch - start_epoch) // 2), 20)
-                dl2_one_group = random.sample(dl2_one_group, n)
+                    gsum += probs_u[:,j]
+                dl2_one_group.append(dl2.Or([dl2.EQ(gsum, 1.0), dl2.EQ(gsum, 0.0)]))
             dl2_one_group = dl2.And(dl2_one_group)
             dl2_loss = dl2_one_group.loss(args).mean()
             constraint_loss = dl2_loss
@@ -336,7 +336,7 @@ def train(epoch):
         sys.stdout.flush()
     return 100.*float(correct)/total
 
-def save(acc, e, model, best=False):
+def save(acc, e, net, best=False):
     state = {
             'net': net.module if use_cuda else net,
             'acc': acc,
@@ -350,10 +350,11 @@ def save(acc, e, model, best=False):
     else:
         save_point = './checkpoint/' + file_name + '_' + str(e) + '_' + '.t7'
     torch.save(state, save_point)
+    return net
     
         
 def test(epoch):
-    global best_acc
+    global best_acc, best_model
     net.eval()
     test_loss = 0
     correct = 0
@@ -376,7 +377,7 @@ def test(epoch):
 
     if acc > best_acc:
         #print('| Saving Best model...\t\t\tTop1 = %.2f%%' %(acc))
-        save(acc, num_epochs, net, best=True)
+        best_model = save(acc, num_epochs, net, best=True)
         best_acc = acc
 
 print('\n[Phase 3] : Training model')
@@ -397,5 +398,9 @@ for epoch in range(start_epoch, start_epoch+num_epochs):
     elapsed_time += epoch_time
     print('| Elapsed time : %d:%02d:%02d'  %(cf.get_hms(elapsed_time)))
 
+if best_model is not None:
+    print('.')
+    save(best_acc, 'overall',  best_model)
+    
 print('\n[Phase 4] : Testing model')
 print('* Test results : Acc@1 = %.2f%%' %(best_acc))
