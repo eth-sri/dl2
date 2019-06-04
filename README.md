@@ -1,5 +1,10 @@
 # DL2: Training and Querying Neural Networks with Logic
 
+<img width="100" alt="portfolio_view" align="left" src="https://www.sri.inf.ethz.ch/assets/systems/dl2-logo.png"><a href="https://www.sri.inf.ethz.ch/"><img width="100" alt="portfolio_view" align="right" src="http://safeai.ethz.ch/img/sri-logo.svg"></a><br />
+
+
+
+
 DL2 is a framework that allows training neural networks with logical constraints over numerical values in the network (e.g. inputs, outputs, weights) and to query networks for inputs fulfilling a logical formula. An example query is shown [below](#example-query). For more details read [training/README.md](https://github.com/eth-sri/dl2/tree/master/training) and [querying/README.md](https://github.com/eth-sri/dl2/tree/master/querying).
 
 This is implementation of DL2 can be used as a library compatible with PyTorch and can be used to reproduce the results of the DL2 [research paper](https://www.sri.inf.ethz.ch/publications/fischer2019dl2).
@@ -10,7 +15,7 @@ This is implementation of DL2 can be used as a library compatible with PyTorch a
 FIND i[100]
 WHERE i[:] in [-1, 1],
       class(NN1(GEN(i)), 1),
-      class(NN2(GEN(i)),  2),
+      class(NN2(GEN(i)), 2),
 RETURN GEN(i)
 ```
 
