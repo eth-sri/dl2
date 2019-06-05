@@ -1,14 +1,6 @@
 #!/bin/bash
 
-cd ../data
-mkdir GTSRB
-wget http://benchmark.ini.rub.de/Dataset/GTSRB_Final_Training_Images.zip
-wget http://benchmark.ini.rub.de/Dataset/GTSRB_Final_Test_Images.zip
-wget http://benchmark.ini.rub.de/Dataset/GTSRB_Final_Test_GT.zip
-unzip GTSRB_Final_Training_Images.zip
-unzip GTSRB_Final_Test_Images.zip
-unzip GTSRB_Final_Test_GT.zip
-cd ../querying
+bash download_data.sh
 
 cd models
 
