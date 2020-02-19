@@ -70,7 +70,7 @@ class EQ(Condition):
         self.b = b
 
     def loss(self, args):
-        return diffsat_theta(self.a, self.b)
+        return diffsat_theta(self.a, self.b).sum()
 
     def satisfy(self, args):
         return torch.abs(self.a - self.b) <= args.eps_check
@@ -169,9 +169,11 @@ class Negate(Condition):
         if isinstance(self.exp, LT):
             self.neg = GEQ(self.exp.a, self.exp.b)
         elif isinstance(self.exp, GT):
-            self.neg = LEQ(self.exp, self.exp.b)
+            self.neg = LEQ(self.exp.a, self.exp.b)
         elif isinstance(self.exp, EQ):
-            self.neg = Or(LT(self.exp.a, self.exp.b), LT(self.exp.b, self.exp.a))
+            self.neg = Or(
+                [LT(self.exp.a, self.exp.b), LT(self.exp.b, self.exp.a)]
+            )
         elif isinstance(self.exp, LEQ):
             self.neg = GT(self.exp.a, self.exp.b)
         elif isinstance(self.exp, GEQ):
