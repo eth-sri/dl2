@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 
+
 class DL2_Oracle:
 
     def __init__(self, learning_rate, net, constraint, use_cuda):
@@ -35,35 +36,24 @@ class DL2_Oracle:
         :param num_iters: Number of iterations to perform in each restart
         :return: List of values for each of variables z_1, ..., z_M
         """
-        n_batch = x_batches[0].size()[0]
         n_gvars = len(domains)
 
         for retry in range(num_restarts):
-            z_batches = [np.concatenate([np.expand_dims(domains[j][i].sample(), axis=0) for i in range(n_batch)], axis=0)
-                         for j in range(n_gvars)]
-
-            assert z_batches[0].shape[0] == n_batch, 'Batch size in x and z doesn not match'
-
+            z_batches = [domains[j].sample() for j in range(n_gvars)]
             for it in range(num_iters):
                 neg_losses, pos_losses, sat, z_inputs = self.constraint.loss(x_batches, y_batches, z_batches, args)
 
                 avg_neg_loss = torch.mean(neg_losses)
                 avg_neg_loss.backward()
                 for i in range(n_gvars):
-                    z_grad = z_inputs[i].grad.data
-                    z_grad = z_grad.cpu().numpy()
-                    if domains[0][i].name == 'box':
-                        z_grad = np.sign(z_grad)
-                    z_batches[i] -= self.learning_rate * z_grad
-                for j in range(n_gvars):
-                    for i in range(n_batch):
-                        z_batches[j][i] = domains[j][i].project(z_batches[j][i])
-
+                    z_batches[i] -= self.learning_rate * torch.sign(z_inputs[i].grad.data)
+                    z_batches[i] = domains[i].project(z_batches[i])
             return z_batches
 
     def evaluate(self, x_batches, y_batches, z_batches, args):
         neg_losses, pos_losses, sat, _ = self.constraint.loss(x_batches, y_batches, z_batches, args)
         if not isinstance(sat, np.ndarray):
             sat = sat.cpu().numpy()
-        constr_acc = np.mean(sat)
-        return torch.mean(neg_losses), torch.mean(pos_losses), constr_acc
+        # constr_acc = np.mean(sat)
+        # return torch.mean(neg_losses), torch.mean(pos_losses), constr_acc
+        return neg_losses, pos_losses, sat
