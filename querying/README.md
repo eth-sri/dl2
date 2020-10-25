@@ -57,7 +57,7 @@ success, r, t = q.solve(a < b, return_values=[i])
 `train_models.sh` downloads and trains several neural networks on common classification tasks. This might take a long time.
 Many of the models use existing implementations and datasets. See section "Used Models" below for details.
 
-Alternatively you can also skip this step and [download](https://drive.google.com/file/d/1MtXo9ZajD79h-yUiQ6CSCmRPbSTWoAOG/view?usp=sharing) our provided models. We recommend placing the file `models.zip` in this folder and running `unzip models.zip` from the command line. Additionally you will need to run `bash download_data.sh` to download the GTSRB data. Note, that we can not provide you with Imagenet data samples. You will need to follow the instructions in `train_models.sh` to download them yourself.
+Alternatively you can also skip this step and [download](https://files.sri.inf.ethz.ch/dl2/models.zip) our provided models. We recommend placing the file `models.zip` in this folder and running `unzip models.zip` from the command line. Additionally you will need to run `bash download_data.sh` to download the GTSRB data. Note, that we can not provide you with Imagenet data samples. You will need to follow the instructions in `train_models.sh` to download them yourself.
 
 Once this has been run and the models are successfully trained  `run.py` can be used to perform the experiments from the evaluation section of the paper.
 `run_additional.py` performs the experiments found in the appendix of the paper.
