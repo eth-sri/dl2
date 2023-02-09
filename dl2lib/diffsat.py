@@ -70,7 +70,7 @@ class EQ(Condition):
         self.b = b
 
     def loss(self, args):
-        return diffsat_theta(self.a, self.b).sum()
+        return diffsat_theta(self.a, self.b)
 
     def satisfy(self, args):
         return torch.abs(self.a - self.b) <= args.eps_check
