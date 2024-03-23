@@ -1,3 +1,1 @@
-from functional import compose
-
-lmap = compose(list, map)
+lmap = lambda x: list(map(x))
