@@ -1,4 +1,3 @@
-functional
 numpy
 Pillow
 scipy
@@ -8,5 +7,4 @@ torchvision==0.2.1
 matplotlib
 sklearn
 configargparse
-functional
 sklearn
