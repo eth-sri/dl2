@@ -3,7 +3,7 @@ numpy
 Pillow
 scipy
 textX==1.8.0
-torch==1.0.0
+torch==2.2.0
 torchvision==0.2.1
 matplotlib
 sklearn
